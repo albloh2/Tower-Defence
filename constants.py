@@ -6,3 +6,16 @@ FPS = 60
 INITIAL_MONEY = 100
 INITIAL_HEALTH = 100
 SHOOTER_PRICE = 10
+
+# ENEMY CONFIGURATION #
+ENEMY_PATH = [
+    (595, 285),
+    (180, 285),
+    (180, 115),
+    (360, 115),
+    (360, -65),
+    (-245, -65),
+    (-245, 285),
+    (-510, 285),
+    (-510, -300)
+]

@@ -1,6 +1,5 @@
 import math as m
-
-import pygame
+import time as t
 import pygame as pg
 
 PYGAME_API = pg
@@ -84,9 +83,13 @@ class Mouse:
         self.pressed = pg.mouse.get_pressed()
         return self.pressed
 
-    def get_position(self):
+    def get_position(self, legacy=False):
         self.position = pg.mouse.get_pos()
-        return self.position
+        if legacy:
+            return self.position
+        else:
+            return ((self.position[0] - pg.display.get_surface().get_size()[0] / 2), (
+                    pg.display.get_surface().get_size()[1] / 2 - self.position[1]))
 
     def set_position(self, x, y):
         pg.mouse.set_pos(x, y)
@@ -195,8 +198,11 @@ class Sprite:
             self.image = Image(image, mode="f")
         elif mode == "o":
             self.image = image
+        elif mode == "s":
+            self.image = Image(image.get_surface().copy(), "o")
         else:
             raise ValueError(f"Invalid Option: '{mode}'")
+        self.original_image = Image(self.image.image.copy(), "o")
         self.x = x
         self.y = y
         self.size = 100
@@ -212,7 +218,7 @@ class Sprite:
         return Sprite(Image(self.get_surface().copy(), "o"), self.x, self.y, "o")
 
     def rotate(self, angle):
-        self.rotation = angle
+        self.rotation += angle
         self.image.rotate(angle)
 
     def resize(self, size):
@@ -223,12 +229,17 @@ class Sprite:
         self.x += m.sin(m.radians(self.rotation)) * steps
         self.y += m.cos(m.radians(self.rotation)) * steps
 
+    def rotate_towards_point(self, x, y):
+        self.rotation = 0
+        self.image = Image(self.original_image.image.copy(), "o")
+        self.rotate(m.degrees(m.atan2(self.y - y, x - self.x)))
+
     def clicked(self, mouse_object):
         if mouse_object.get_pressed()[0]:
-            hit_box = pygame.Rect(self.x + self.HALF_WIDTH - (self.image.image.get_width() / 2),
+            hit_box = pg.Rect(self.x + self.HALF_WIDTH - (self.image.image.get_width() / 2),
                                   self.HALF_HEIGHT - self.y - (self.image.image.get_height() / 2),
                                   self.image.image.get_width(), self.image.image.get_height())
-            if hit_box.collidepoint(mouse_object.get_position()):
+            if hit_box.collidepoint(mouse_object.get_position(True)):
                 return True
         return False
 
@@ -285,11 +296,11 @@ class Rectangle:
     def draw(self, window, colour, x, y, filled=True, outline=1):
         if filled:
             pg.draw.rect(window.window, colour,
-                         pygame.Rect(x + self.HALF_WIDTH - (self.width / 2), self.HALF_HEIGHT - y - (self.height / 2),
+                         pg.Rect(x + self.HALF_WIDTH - (self.width / 2), self.HALF_HEIGHT - y - (self.height / 2),
                                      self.width, self.height))
         else:
             pg.draw.rect(window.window, colour,
-                         pygame.Rect(x + self.HALF_WIDTH - (self.width / 2), self.HALF_HEIGHT - y - (self.height / 2),
+                         pg.Rect(x + self.HALF_WIDTH - (self.width / 2), self.HALF_HEIGHT - y - (self.height / 2),
                                      self.width, self.height), outline)
 
 
@@ -305,6 +316,25 @@ class Button(Sprite):
         self.text_object.draw(window, kwargs["text"], kwargs["color"], self.x, self.y)
 
 
+# PYGAME UTILITIES #
+class Timer:
+    def __init__(self, duration):
+        self.duration = duration
+        self.end_time = t.time() + duration
+        self.running = True
+
+    def tick(self):
+        if self.running:
+            if t.time() > self.end_time:
+                self.running = False
+                return True
+        return False
+
+    def reset(self):
+        self.end_time = t.time() + self.duration
+        self.running = True
+
+# Initialise PyGame #
 pg.init()
 
 if __name__ == "__main__":

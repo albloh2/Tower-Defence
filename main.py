@@ -1,19 +1,33 @@
 import os
 import GameTools as gt
+import Game as game
 import constants as const
+import random as r
 
 
 def process(_delta_time):
-    global Mode
+    global Mode, InWave, Wave, EnemySpawnTimer, EnemyStillSpawning, EnemySpawned
     if Mode == "main_menu":
         if Mouse.get_pressed()[0]:
             print(Mouse.get_position())
             load_level(1)
             Mode = "game_1"
     elif Mode == "game_1":
-        if ButtonPlay.clicked(Mouse):
-            return False
-        handle_ui_buy_shooter()
+        if Mouse.get_pressed()[0]:
+            print(Mouse.get_position())
+        if InWave:
+            handle_enemy_spawn()
+            handle_shooter_point()
+        else:
+            if ButtonPlay.clicked(Mouse) and not IsClicked:
+                InWave = True
+                EnemyStillSpawning = True
+                EnemySpawned = 0
+                EnemySpawnTimer = gt.Timer(0.1)
+                Wave += 1
+            handle_ui_buy_shooter()
+        handle_enemy()
+        print(EnemyCount)
 
     return True
 
@@ -33,6 +47,8 @@ def update(windows):
         windows.draw_button(ButtonPlay, gt.BLACK, "Start")
         windows.draw_sprite(ShooterSprite)
         windows.draw_text(Font24, f"${const.SHOOTER_PRICE}", gt.WHITE, -150, -335)
+        for i in range(len(EnemySpriteClones)):
+            windows.draw_sprite(EnemySpriteClones[i])
         for i in range(len(ShooterSpriteClones)):
             windows.draw_sprite(ShooterSpriteClones[i])
         # windows.draw_button(ButtonShop, gt.BLACK, "Shop")
@@ -42,24 +58,6 @@ def update(windows):
         windows.fill_color(gt.WHITE)
         windows.draw_text(Font48, "You Loser", gt.BLACK, 0, 0)
     windows.draw_text(Font24, "Alpha Preview. Version 1.0.0-a.1.", gt.BLACK, -495, -345)
-
-
-def handle_ui_buy_shooter():
-    global IsClicked, Money
-    if ShooterSprite.clicked(Mouse) and not IsClicked and Money >= const.SHOOTER_PRICE:
-        IsClicked = True
-        Money -= const.SHOOTER_PRICE
-        ShooterSpriteClones.append(ShooterSprite.clone())
-    if IsClicked:
-        ShooterSpriteClones[len(ShooterSpriteClones) - 1].x = \
-            Mouse.get_position()[0] - gt.PYGAME_API.display.get_surface().get_size()[0] / 2
-        ShooterSpriteClones[len(ShooterSpriteClones) - 1].y = \
-            gt.PYGAME_API.display.get_surface().get_size()[1] / 2 - Mouse.get_position()[1]
-    if not Mouse.get_pressed()[0] and IsClicked:
-        IsClicked = False
-        if ShooterSpriteClones[len(ShooterSpriteClones) - 1].y < -300:
-            ShooterSpriteClones.pop()
-            Money += const.SHOOTER_PRICE
 
 
 def splash_screen():
@@ -83,7 +81,8 @@ def load_assets():
 
 
 def load_level(level_id):
-    global LevelBackground, UIBarMain, Wave, ButtonPlay, ButtonShop, Money, Health
+    global LevelBackground, UIBarMain, Wave, ButtonPlay, ButtonShop, Money, Health, InWave
+    InWave = False
     Mouse.set_cursor(gt.WAIT)
     Window.fill_color(gt.BLACK)
     Window.draw_text(Font24, "Loading...", gt.WHITE, 0, 0)
@@ -103,13 +102,66 @@ def load_level(level_id):
     Mouse.set_cursor(gt.ARROW)
 
 
+def handle_ui_buy_shooter():
+    global IsClicked, Money
+    if ShooterSprite.clicked(Mouse) and not IsClicked and Money >= const.SHOOTER_PRICE:
+        IsClicked = True
+        Money -= const.SHOOTER_PRICE
+        ShooterSpriteClones.append(game.Shooter(ShooterSprite, ShooterSprite.x, ShooterSprite.y, "s"))
+    if IsClicked:
+        ShooterSpriteClones[len(ShooterSpriteClones) - 1].x = Mouse.get_position()[0]
+        ShooterSpriteClones[len(ShooterSpriteClones) - 1].y = Mouse.get_position()[1]
+    if not Mouse.get_pressed()[0] and IsClicked:
+        IsClicked = False
+        if ShooterSpriteClones[len(ShooterSpriteClones) - 1].y < -300:
+            ShooterSpriteClones.pop()
+            Money += const.SHOOTER_PRICE
+
+
+def handle_shooter_point():
+    for i in ShooterSpriteClones:
+        i.rotate_towards_point(Mouse.get_position()[0], Mouse.get_position()[1])
+
+
+def handle_enemy():
+    global Health, EnemyCount
+    for i in range(len(EnemySpriteClones)):
+        if i > len(EnemySpriteClones) - 1:
+            break
+        condition, Health, EnemyCount = EnemySpriteClones[i].process(Health, EnemyCount)
+        if condition:
+            EnemySpriteClones.pop(i)
+
+
+def handle_enemy_spawn():
+    global EnemyCount, InWave, EnemyStillSpawning, EnemyToSpawn, EnemySpawned
+    if EnemySpawnTimer.tick():
+        EnemySpriteClones.append(game.Enemy(os.path.join("Assets", "TD_Enemy_1.svg"), 0, 0))
+        EnemyCount += 1
+        EnemySpawned += 1
+        if EnemySpawned < EnemyToSpawn:
+            EnemySpawnTimer.reset()
+        else:
+            EnemyStillSpawning = False
+            EnemyToSpawn += r.randint(0, 10)
+    elif not EnemyStillSpawning:
+        if EnemyCount == 0:
+            InWave = False
+
+
 def main():
     global Font24, Font48, ShooterSprite, Mouse, Keyboard, Mode, LevelBackground, UIBarMain, Wave, Window, IsClicked, \
-        ShooterSpriteClones
+        ShooterSpriteClones, InWave, EnemySpriteClones, EnemyCount, EnemySpawnTimer, EnemyStillSpawning, EnemyToSpawn, \
+        EnemySpawned
+    InWave = False
     LevelBackground = None
     UIBarMain = None
     Wave = None
     IsClicked = False
+    EnemyToSpawn = 1
+    EnemySpriteClones = []
+    EnemyCount = 0
+    EnemySpawnTimer = 0
     ShooterSpriteClones = []
     Mode = "init"
     Window = gt.Window(const.WIDTH, const.HEIGHT)
