@@ -13,6 +13,10 @@ ARROW = pg.SYSTEM_CURSOR_ARROW
 HAND = pg.SYSTEM_CURSOR_HAND
 WAIT = pg.SYSTEM_CURSOR_WAIT
 
+# PYGAME IMAGE #
+NON_ALPHA_SURFACE = 1
+ALPHA_SURFACE = 2
+
 
 # PYGAME WINDOWS #
 class Window:
@@ -57,16 +61,18 @@ class Window:
         pg.display.update()
         self.clock.tick(self.fps)
 
-    def run(self, process, draw):
+    def run(self, process, draw, print_fps=False):
         run = True
         while run:
             for event in pg.event.get():
                 if event.type == pg.QUIT:
                     run = False
             if run:
-                run = process(self.clock.get_time() / 1000 * 30)
+                run = process(self.clock.get_time() / 1000 * self.fps)
                 draw(self)
                 self.update()
+                if print_fps:
+                    print(f"[DEBUG] FPS: {self.clock.get_fps()}")
 
 
 # PYGAME INPUT #
@@ -155,11 +161,17 @@ class Keyboard:
 # PYGAME IMAGE #
 
 class Image:
-    def __init__(self, args, mode="f"):
+    def __init__(self, args, mode="f", alpha=0):
         width, height = pg.display.get_surface().get_size()
         self.HALF_WIDTH = round(width / 2)
         self.HALF_HEIGHT = round(height / 2)
         if mode == "f":
+            if alpha == 0:
+                self.image = pg.image.load(args).convert_alpha()
+            elif alpha == NON_ALPHA_SURFACE:
+                self.image = pg.image.load(args).convert()
+            elif alpha == ALPHA_SURFACE:
+                self.image = pg.image.load(args).convert_alpha()
             self.image = pg.image.load(args)
         elif mode == "o":
             self.image = args
@@ -189,17 +201,17 @@ class Image:
 
 
 class Sprite:
-    def __init__(self, image, x, y, mode="f"):
+    def __init__(self, image, x, y, mode="f", alpha=0):
         self.smooth = True
         width, height = pg.display.get_surface().get_size()
         self.HALF_WIDTH = round(width / 2)
         self.HALF_HEIGHT = round(height / 2)
         if mode == "f":
-            self.image = Image(image, mode="f")
+            self.image = Image(image, mode="f", alpha=alpha)
         elif mode == "o":
             self.image = image
         elif mode == "s":
-            self.image = Image(image.get_surface().copy(), "o")
+            self.image = Image(image.get_surface().copy(), mode="o", alpha=alpha)
         else:
             raise ValueError(f"Invalid Option: '{mode}'")
         self.original_image = Image(self.image.image.copy(), "o")
@@ -237,14 +249,29 @@ class Sprite:
     def clicked(self, mouse_object):
         if mouse_object.get_pressed()[0]:
             hit_box = pg.Rect(self.x + self.HALF_WIDTH - (self.image.image.get_width() / 2),
-                                  self.HALF_HEIGHT - self.y - (self.image.image.get_height() / 2),
-                                  self.image.image.get_width(), self.image.image.get_height())
+                              self.HALF_HEIGHT - self.y - (self.image.image.get_height() / 2),
+                              self.image.image.get_width(), self.image.image.get_height())
             if hit_box.collidepoint(mouse_object.get_position(True)):
                 return True
         return False
 
+    def is_touching_point(self, x, y):
+        hit_box = pg.Rect(self.x + self.HALF_WIDTH - (self.image.image.get_width() / 2),
+                          self.HALF_HEIGHT - self.y - (self.image.image.get_height() / 2),
+                          self.image.image.get_width(), self.image.image.get_height())
+        if hit_box.collidepoint(x, y):
+            return True
+        return False
+
+    def is_touching_edge(self):
+        if self.x < -self.HALF_WIDTH or self.x > self.HALF_WIDTH or self.y < -self.HALF_HEIGHT or self.y > self.HALF_HEIGHT:
+            return True
+
     def draw(self, window):
         self.image.draw(window, self.x, self.y)
+
+    def distance_to_point(self, x, y):
+        return m.sqrt((self.x - x) ** 2 + (self.y - y) ** 2)
 
 
 # PYGAME TEXT #
@@ -297,18 +324,18 @@ class Rectangle:
         if filled:
             pg.draw.rect(window.window, colour,
                          pg.Rect(x + self.HALF_WIDTH - (self.width / 2), self.HALF_HEIGHT - y - (self.height / 2),
-                                     self.width, self.height))
+                                 self.width, self.height))
         else:
             pg.draw.rect(window.window, colour,
                          pg.Rect(x + self.HALF_WIDTH - (self.width / 2), self.HALF_HEIGHT - y - (self.height / 2),
-                                     self.width, self.height), outline)
+                                 self.width, self.height), outline)
 
 
 # PYGAME GUI #
 
 class Button(Sprite):
-    def __init__(self, image, text_object, x, y):
-        super().__init__(image, x, y)
+    def __init__(self, image, text_object, x, y, mode="f", alpha=0):
+        super().__init__(image, x, y, mode, alpha)
         self.text_object = text_object
 
     def draw(self, window, **kwargs):
@@ -334,9 +361,11 @@ class Timer:
         self.end_time = t.time() + self.duration
         self.running = True
 
+
 # Initialise PyGame #
 pg.init()
 
+# Basic Demo #
 if __name__ == "__main__":
     def __process(_delta_time):
         return True
