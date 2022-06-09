@@ -253,7 +253,6 @@ def main():
     Mouse = gt.Mouse()
     Keyboard = gt.Keyboard()
     splash_screen()
-    Mode = "game_over"
     Window.run(process, update, True)
 
 
