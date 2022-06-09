@@ -4,6 +4,7 @@ import Game as game
 import constants as const
 import random as r
 import webbrowser as wb
+import json as js
 
 
 def process(delta_time):
@@ -28,14 +29,22 @@ def process(delta_time):
                 InWave = True
                 EnemyStillSpawning = True
                 EnemySpawned = 0
-                EnemySpawnTimer = gt.Timer(0.5)
+                EnemySpawnTimer = gt.Timer(0.25)
                 Wave += 1
                 return True
             handle_ui_buy_shooter()
     if Mode == "game_over":
-        if Mouse.get_pressed()[0]:
+        if Mouse.get_pressed()[0] and not Feedback:
             wb.open(
                 "https://docs.google.com/forms/d/e/1FAIpQLSdo5GQJf8IFWAF3aS-VsmylW_2iluJzBfIGnWUvvo4gNt0p6g/viewform?usp=pp_url&entry.1669969167=1.0.0-a.1.")
+            try:
+                f = open(os.path.join("Data", "Settings.json"), "w")
+            except FileNotFoundError:
+                os.mkdir(os.path.join("Data"))
+                f = open(os.path.join("Data", "Settings.json"), "w")
+            Settings["Feedback"] = True
+            f.write(js.dumps(Settings))
+            f.close()
             return False
 
     return True
@@ -63,14 +72,17 @@ def update(windows):
         for i in range(len(BulletSpriteClones)):
             windows.draw_sprite(BulletSpriteClones[i])
         # windows.draw_button(ButtonShop, gt.BLACK, "Shop")
-        windows.draw_text(Font24, "Prototype Version. Version 1.0.0-a.1.", gt.BLACK, -495, 345)
+        windows.draw_text(Font24, "Prototype Version. Version 1.0.0-a.1.", gt.BLACK, -475, 345)
         return
     elif Mode == "game_over":
         windows.fill_color(gt.WHITE)
         windows.draw_text(Font48, "Game Over", gt.BLACK, 0, 0)
         windows.draw_text(Font24, f"You Survived {Wave} rounds.", gt.BLACK, 0, -100)
-        windows.draw_text(Font24, "Click Anywhere To Give Feedback And Close Game", gt.BLACK, 0, -150)
-    windows.draw_text(Font24, "Prototype Version. Version 1.0.0-a.1.", gt.BLACK, -495, -345)
+        if Feedback:
+            windows.draw_text(Font24, "Thank you for testing.", gt.BLACK, 0, -150)
+        else:
+            windows.draw_text(Font24, "Click Anywhere To Give Feedback And Close Game", gt.BLACK, 0, -150)
+    windows.draw_text(Font24, "Prototype Version. Version 1.0.0-a.1.", gt.BLACK, -475, -345)
 
 
 def splash_screen():
@@ -78,7 +90,7 @@ def splash_screen():
     Mode = "splash"
     Window.fill_color(gt.WHITE)
     Window.draw_text(Font24, "Albloh2 Gaming", gt.BLACK, 0, 0)
-    Window.draw_text(Font24, "Alpha Preview. Version 1.0.0-a.1.", gt.BLACK, -495, -345)
+    Window.draw_text(Font24, "Prototype Version. Version 1.0.0-a.1.", gt.BLACK, -475, -345)
     Window.update()
     Mouse.set_cursor(gt.WAIT)
     gt.PYGAME_API.time.wait(1000)
@@ -99,7 +111,7 @@ def load_level(level_id):
     Mouse.set_cursor(gt.WAIT)
     Window.fill_color(gt.BLACK)
     Window.draw_text(Font24, "Loading...", gt.WHITE, 0, 0)
-    Window.draw_text(Font24, "Alpha Preview. Version 1.0.0-a.1.", gt.WHITE, -495, -345)
+    Window.draw_text(Font24, "Prototype Version. Version 1.0.0-a.1.", gt.WHITE, -475, -345)
     Window.update()
     gt.PYGAME_API.time.wait(1000)
     LevelBackground = gt.Image(os.path.join("Assets", f"TD_Level_{level_id}.png"), alpha=gt.NON_ALPHA_SURFACE)
@@ -205,7 +217,21 @@ def handle_enemy_spawn():
 def main():
     global Font24, Font48, ShooterSprite, Mouse, Keyboard, Mode, LevelBackground, UIBarMain, Wave, Window, IsClicked, \
         ShooterSpriteClones, InWave, EnemySpriteClones, EnemyCount, EnemySpawnTimer, EnemyStillSpawning, EnemyToSpawn, \
-        EnemySpawned, BulletSpriteClones, ButtonPlay, ButtonShop, Money, Health
+        EnemySpawned, BulletSpriteClones, ButtonPlay, ButtonShop, Money, Health, Feedback, Settings
+    try:
+        with open(os.path.join("Data","Settings.json"), "r") as f:
+            Settings = js.load(f)
+            print("[INFO] Settings loaded.")
+    except FileNotFoundError:
+        Settings = {}
+    except js.decoder.JSONDecodeError:
+        os.remove(os.path.join("Data","Settings.json"))
+        Settings = {}
+    if "Feedback" in Settings:
+        if Settings["Feedback"]:
+            Feedback = True
+    else:
+        Feedback = False
     InWave = False
     LevelBackground = None
     UIBarMain = None
@@ -227,6 +253,7 @@ def main():
     Mouse = gt.Mouse()
     Keyboard = gt.Keyboard()
     splash_screen()
+    Mode = "game_over"
     Window.run(process, update, True)
 
 
