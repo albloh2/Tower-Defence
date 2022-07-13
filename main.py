@@ -8,7 +8,7 @@ import json as js
 
 
 def process(delta_time):
-    global Mode, InWave, Wave, EnemySpawnTimer, EnemyStillSpawning, EnemySpawned
+    global Mode, InWave, Wave, EnemySpawnTimer, EnemyStillSpawning, EnemySpawned, BulletSpriteClones
     if Mode == "main_menu":
         if Mouse.get_pressed()[0]:
             load_level(1)
@@ -16,15 +16,10 @@ def process(delta_time):
     elif Mode == "game_1":
         if InWave:
             handle_enemy_spawn()
-            handle_shooter_point()
-            handle_shooter()
-            handle_bullets(delta_time)
-            handle_collision()
-            handle_enemy(delta_time)
+            handle_enemy_and_collision()
             if Health == 0:
                 Mode = "game_over"
         else:
-            handle_bullets(delta_time)
             if ButtonPlay.clicked(Mouse) and not IsClicked:
                 InWave = True
                 EnemyStillSpawning = True
@@ -36,7 +31,7 @@ def process(delta_time):
     if Mode == "game_over":
         if Mouse.get_pressed()[0] and not Feedback:
             wb.open(
-                "https://docs.google.com/forms/d/e/1FAIpQLSdo5GQJf8IFWAF3aS-VsmylW_2iluJzBfIGnWUvvo4gNt0p6g/viewform?usp=pp_url&entry.1669969167=1.0.0-a.1.")
+                "https://docs.google.com/forms/d/e/1FAIpQLSdo5GQJf8IFWAF3aS-VsmylW_2iluJzBfIGnWUvvo4gNt0p6g/viewform?usp=pp_url&entry.1669969167=1.0.0-a.2.")
             try:
                 f = open(os.path.join("Data", "Settings.json"), "w")
             except FileNotFoundError:
@@ -69,10 +64,8 @@ def update(windows):
             windows.draw_sprite(EnemySpriteClones[i])
         for i in range(len(ShooterSpriteClones)):
             windows.draw_sprite(ShooterSpriteClones[i])
-        for i in range(len(BulletSpriteClones)):
-            windows.draw_sprite(BulletSpriteClones[i])
         # windows.draw_button(ButtonShop, gt.BLACK, "Shop")
-        windows.draw_text(Font24, "Prototype Version. Version 1.0.0-a.1.", gt.BLACK, -475, 345)
+        windows.draw_text(Font24, "Prototype Version. Version 1.0.0-a.2.", gt.BLACK, -475, 345)
         return
     elif Mode == "game_over":
         windows.fill_color(gt.WHITE)
@@ -82,7 +75,7 @@ def update(windows):
             windows.draw_text(Font24, "Thank you for testing.", gt.BLACK, 0, -150)
         else:
             windows.draw_text(Font24, "Click Anywhere To Give Feedback And Close Game", gt.BLACK, 0, -150)
-    windows.draw_text(Font24, "Prototype Version. Version 1.0.0-a.1.", gt.BLACK, -475, -345)
+    windows.draw_text(Font24, "Prototype Version. Version 1.0.0-a.2.", gt.BLACK, -475, -345)
 
 
 def splash_screen():
@@ -90,7 +83,7 @@ def splash_screen():
     Mode = "splash"
     Window.fill_color(gt.WHITE)
     Window.draw_text(Font24, "Albloh2 Gaming", gt.BLACK, 0, 0)
-    Window.draw_text(Font24, "Prototype Version. Version 1.0.0-a.1.", gt.BLACK, -475, -345)
+    Window.draw_text(Font24, "Prototype Version. Version 1.0.0-a.2.", gt.BLACK, -475, -345)
     Window.update()
     Mouse.set_cursor(gt.WAIT)
     gt.PYGAME_API.time.wait(1000)
@@ -111,7 +104,7 @@ def load_level(level_id):
     Mouse.set_cursor(gt.WAIT)
     Window.fill_color(gt.BLACK)
     Window.draw_text(Font24, "Loading...", gt.WHITE, 0, 0)
-    Window.draw_text(Font24, "Prototype Version. Version 1.0.0-a.1.", gt.WHITE, -475, -345)
+    Window.draw_text(Font24, "Prototype Version. Version 1.0.0-a.2.", gt.WHITE, -475, -345)
     Window.update()
     gt.PYGAME_API.time.wait(1000)
     LevelBackground = gt.Image(os.path.join("Assets", f"TD_Level_{level_id}.png"), alpha=gt.NON_ALPHA_SURFACE)
@@ -126,6 +119,11 @@ def load_level(level_id):
     Health = const.INITIAL_HEALTH
     Mouse.set_cursor(gt.ARROW)
 
+def handle_enemy_and_collision():
+    for i in range(10):
+        handle_enemy()
+        handle_shooter_point()
+        handle_shooter()
 
 def handle_ui_buy_shooter():
     global IsClicked, Money
@@ -134,8 +132,8 @@ def handle_ui_buy_shooter():
         Money -= const.SHOOTER_PRICE
         ShooterSpriteClones.append(game.Shooter(ShooterSprite, ShooterSprite.x, ShooterSprite.y, "s"))
     if IsClicked:
-        ShooterSpriteClones[len(ShooterSpriteClones) - 1].x = Mouse.get_position()[0]
-        ShooterSpriteClones[len(ShooterSpriteClones) - 1].y = Mouse.get_position()[1]
+        ShooterSpriteClones[len(ShooterSpriteClones) - 1].x = round(Mouse.get_position()[0]/20)*20
+        ShooterSpriteClones[len(ShooterSpriteClones) - 1].y = round(Mouse.get_position()[1]/20)*20
     if not Mouse.get_pressed()[0] and IsClicked:
         IsClicked = False
         if ShooterSpriteClones[len(ShooterSpriteClones) - 1].y < -300:
@@ -154,46 +152,26 @@ def handle_shooter_point():
                 shortest_distance = distance
                 shortest_x = j.x
                 shortest_y = j.y
-        if shortest_distance is not None:
+        if shortest_distance is not None and shortest_distance < const.SHOOTER_MAX_DISTANCE_RANGE:
             i.rotate_towards_point(shortest_x, shortest_y)
 
 
 def handle_shooter():
+    global EnemyCount
+    global EnemySpriteClones, Money
     for i in ShooterSpriteClones:
-        i.process(BulletSpriteClones)
+        EnemySpriteClones, Money = i.process(EnemySpriteClones, Money)
+    EnemyCount = len(EnemySpriteClones)
 
 
-def handle_bullets(delta_time):
-    global Health, EnemySpriteClones, EnemyCount
-    for i in range(len(BulletSpriteClones)):
-        if i > len(BulletSpriteClones) - 1:
-            return
-        if BulletSpriteClones[i].process(delta_time):
-            BulletSpriteClones.pop(i)
 
 
-def handle_collision():
-    global Money, EnemyCount
-    for i in range(len(BulletSpriteClones)):
-        if i > len(BulletSpriteClones) - 1:
-            return
-        for j in range(len(EnemySpriteClones)):
-            if j > len(EnemySpriteClones) - 1:
-                return
-            if EnemySpriteClones[j].is_touching_point(BulletSpriteClones[i].x, BulletSpriteClones[i].y):
-                BulletSpriteClones.pop(i)
-                EnemySpriteClones.pop(j)
-                Money += 1
-                EnemyCount -= 1
-                break
-
-
-def handle_enemy(delta_time):
+def handle_enemy():
     global Health, EnemyCount
     for i in range(len(EnemySpriteClones)):
         if i > len(EnemySpriteClones) - 1:
             break
-        condition, Health, EnemyCount = EnemySpriteClones[i].process(Health, EnemyCount, delta_time)
+        condition, Health, EnemyCount = EnemySpriteClones[i].process(Health, EnemyCount)
         if condition:
             EnemySpriteClones.pop(i)
 
@@ -221,7 +199,7 @@ def main():
     try:
         with open(os.path.join("Data","Settings.json"), "r") as f:
             Settings = js.load(f)
-            print("[INFO] Settings loaded.")
+            #print("[INFO] Settings loaded.")
     except FileNotFoundError:
         Settings = {}
     except js.decoder.JSONDecodeError:
@@ -253,7 +231,7 @@ def main():
     Mouse = gt.Mouse()
     Keyboard = gt.Keyboard()
     splash_screen()
-    Window.run(process, update, True)
+    Window.run(process, update, False)
 
 
 if __name__ == "__main__":
