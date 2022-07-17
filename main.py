@@ -7,7 +7,7 @@ import webbrowser as wb
 import json as js
 
 
-def process(delta_time):
+def process(_delta_time):
     global Mode, InWave, Wave, EnemySpawnTimer, EnemyStillSpawning, EnemySpawned, BulletSpriteClones
     if Mode == "main_menu":
         if Mouse.get_pressed()[0]:
@@ -21,12 +21,14 @@ def process(delta_time):
                 Mode = "game_over"
         else:
             if ButtonPlay.clicked(Mouse) and not IsClicked:
+                handle_ui_reset_shooter_select()
                 InWave = True
                 EnemyStillSpawning = True
                 EnemySpawned = 0
                 EnemySpawnTimer = gt.Timer(0.25)
                 Wave += 1
                 return True
+            handle_ui_select_shooter()
             handle_ui_buy_shooter()
     if Mode == "game_over":
         if Mouse.get_pressed()[0] and not Feedback:
@@ -58,8 +60,11 @@ def update(windows):
         windows.draw_text(Font24, f"Health: {Health}", gt.WHITE, -450, -335)
         windows.draw_text(Font24, f"Money: ${Money}", gt.WHITE, -300, -335)
         windows.draw_button(ButtonPlay, gt.BLACK, "Start")
-        windows.draw_sprite(ShooterSprite)
-        windows.draw_text(Font24, f"${const.SHOOTER_PRICE}", gt.WHITE, -150, -335)
+        if not Selected and Selected != 0:
+            windows.draw_sprite(ShooterSprite)
+            windows.draw_text(Font24, f"${const.SHOOTER_PRICE}", gt.WHITE, -150, -335)
+        else:
+            windows.draw_text(Font24, f"Lv.{ShooterSpriteClones[Selected].level} Shooter", gt.WHITE, -150, -335)
         for i in range(len(EnemySpriteClones)):
             windows.draw_sprite(EnemySpriteClones[i])
         for i in range(len(ShooterSpriteClones)):
@@ -119,21 +124,28 @@ def load_level(level_id):
     Health = const.INITIAL_HEALTH
     Mouse.set_cursor(gt.ARROW)
 
+
 def handle_enemy_and_collision():
-    for i in range(10):
+    for i in range(5):
         handle_enemy()
         handle_shooter_point()
         handle_shooter()
 
+
 def handle_ui_buy_shooter():
     global IsClicked, Money
+    if Selected or Selected == 0:
+        return
     if ShooterSprite.clicked(Mouse) and not IsClicked and Money >= const.SHOOTER_PRICE:
+        handle_ui_reset_shooter_select()
         IsClicked = True
         Money -= const.SHOOTER_PRICE
         ShooterSpriteClones.append(game.Shooter(ShooterSprite, ShooterSprite.x, ShooterSprite.y, "s"))
+        ShooterSpriteClones[len(ShooterSpriteClones) - 1].offset = 90
+
     if IsClicked:
-        ShooterSpriteClones[len(ShooterSpriteClones) - 1].x = round(Mouse.get_position()[0]/20)*20
-        ShooterSpriteClones[len(ShooterSpriteClones) - 1].y = round(Mouse.get_position()[1]/20)*20
+        ShooterSpriteClones[len(ShooterSpriteClones) - 1].x = round(Mouse.get_position()[0] / 20) * 20
+        ShooterSpriteClones[len(ShooterSpriteClones) - 1].y = round(Mouse.get_position()[1] / 20) * 20
     if not Mouse.get_pressed()[0] and IsClicked:
         IsClicked = False
         if ShooterSpriteClones[len(ShooterSpriteClones) - 1].y < -300:
@@ -164,8 +176,6 @@ def handle_shooter():
     EnemyCount = len(EnemySpriteClones)
 
 
-
-
 def handle_enemy():
     global Health, EnemyCount
     for i in range(len(EnemySpriteClones)):
@@ -192,24 +202,42 @@ def handle_enemy_spawn():
             InWave = False
 
 
+def handle_ui_select_shooter():
+    global Selected
+    if not IsClicked:
+        for i in range(len(ShooterSpriteClones)):
+            if ShooterSpriteClones[i].clicked(Mouse):
+                handle_ui_reset_shooter_select()
+                ShooterSpriteClones[i].switch_image(os.path.join("Assets", "TD_Shooter_2.svg"))
+                Selected = i
+
+
+def handle_ui_reset_shooter_select():
+    global Selected
+    for i in ShooterSpriteClones:
+        i.switch_image(os.path.join("Assets", "TD_Shooter_1.svg"))
+    Selected = None
+
+
 def main():
     global Font24, Font48, ShooterSprite, Mouse, Keyboard, Mode, LevelBackground, UIBarMain, Wave, Window, IsClicked, \
         ShooterSpriteClones, InWave, EnemySpriteClones, EnemyCount, EnemySpawnTimer, EnemyStillSpawning, EnemyToSpawn, \
-        EnemySpawned, BulletSpriteClones, ButtonPlay, ButtonShop, Money, Health, Feedback, Settings
+        EnemySpawned, BulletSpriteClones, ButtonPlay, ButtonShop, Money, Health, Feedback, Settings, Selected
     try:
-        with open(os.path.join("Data","Settings.json"), "r") as f:
+        with open(os.path.join("Data", "Settings.json"), "r") as f:
             Settings = js.load(f)
-            #print("[INFO] Settings loaded.")
+            # print("[INFO] Settings loaded.")
     except FileNotFoundError:
         Settings = {}
     except js.decoder.JSONDecodeError:
-        os.remove(os.path.join("Data","Settings.json"))
+        os.remove(os.path.join("Data", "Settings.json"))
         Settings = {}
     if "Feedback" in Settings:
         if Settings["Feedback"]:
             Feedback = True
     else:
         Feedback = False
+    Selected = None
     InWave = False
     LevelBackground = None
     UIBarMain = None

@@ -24,7 +24,7 @@ Tower Defence is a Tower Defence Game where you have to keep enemies from attack
 ### Running From Source (Tested On Python 3.9)
 
 1. Make sure you have Python installed. If not, grab a copy from [here](https://www.python.org/downloads/).
-2. Install Pygame by excuting ``pip install pygame``,
+2. Install Pygame by executing ``pip install pygame``,
 
    If the above did not work for you, try:
    * Windows:

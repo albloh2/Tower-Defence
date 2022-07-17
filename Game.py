@@ -1,10 +1,13 @@
 import GameTools as gt
 import constants as const
 
+
 class Shooter(gt.Sprite):
     def __init__(self, image, x, y, mode="f"):
         super().__init__(image, x, y, mode, gt.ALPHA_SURFACE)
-        self.timer = gt.Timer(0.5)
+        self.cooldown = 0.5
+        self.timer = gt.Timer(self.cooldown)
+        self.level = 1
 
     def process(self, enemy_sprites, money):
         if self.timer.tick():

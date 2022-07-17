@@ -203,6 +203,7 @@ class Image:
 class Sprite:
     def __init__(self, image, x, y, mode="f", alpha=0):
         self.smooth = True
+        self.hidden = False
         width, height = pg.display.get_surface().get_size()
         self.HALF_WIDTH = round(width / 2)
         self.HALF_HEIGHT = round(height / 2)
@@ -219,6 +220,7 @@ class Sprite:
         self.y = y
         self.size = 100
         self.rotation = 0
+        self.offset = 0
 
     def get_image(self):
         return self.image
@@ -237,6 +239,20 @@ class Sprite:
         self.image.scale(size / self.size, self.smooth)
         self.size = size
 
+    def switch_image(self, image, mode="f", alpha=0):
+        if mode == "f":
+            self.image = Image(image, mode="f", alpha=alpha)
+        elif mode == "o":
+            self.image = image
+        elif mode == "s":
+            self.image = Image(image.get_surface().copy(), mode="o", alpha=alpha)
+        else:
+            raise ValueError(f"Invalid Option: '{mode}'")
+        self.original_image = Image(self.image.image.copy(), "o")
+        self.rotation = 0
+        self.rotate(self.offset)
+        self.resize(self.size)
+
     def move(self, steps):
         self.x += m.sin(m.radians(self.rotation)) * steps
         self.y += m.cos(m.radians(self.rotation)) * steps
@@ -244,9 +260,11 @@ class Sprite:
     def rotate_towards_point(self, x, y):
         self.rotation = 0
         self.image = Image(self.original_image.image.copy(), "o")
-        self.rotate(m.degrees(m.atan2(self.y - y, x - self.x)))
+        self.rotate(m.degrees(m.atan2(self.y - y, x - self.x))+self.offset)
 
     def clicked(self, mouse_object):
+        if self.hidden:
+            return False
         if mouse_object.get_pressed()[0]:
             hit_box = pg.Rect(self.x + self.HALF_WIDTH - (self.image.image.get_width() / 2),
                               self.HALF_HEIGHT - self.y - (self.image.image.get_height() / 2),
@@ -256,6 +274,8 @@ class Sprite:
         return False
 
     def is_touching_point(self, x, y):
+        if self.hidden:
+            return False
         hit_box = pg.Rect(self.x + self.HALF_WIDTH - (self.image.image.get_width() / 2),
                           self.HALF_HEIGHT - self.y - (self.image.image.get_height() / 2),
                           self.image.image.get_width(), self.image.image.get_height())
@@ -264,11 +284,15 @@ class Sprite:
         return False
 
     def is_touching_edge(self):
+        if self.hidden:
+            return False
         if self.x < -self.HALF_WIDTH or self.x > self.HALF_WIDTH or self.y < -self.HALF_HEIGHT or self.y > self.HALF_HEIGHT:
             return True
+        return False
 
-    def draw(self, window):
-        self.image.draw(window, self.x, self.y)
+    def draw(self, window, ignore_hidden=False):
+        if ignore_hidden or not self.hidden:
+            self.image.draw(window, self.x, self.y)
 
     def distance_to_point(self, x, y):
         return m.sqrt((self.x - x) ** 2 + (self.y - y) ** 2)
